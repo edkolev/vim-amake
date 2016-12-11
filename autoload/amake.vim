@@ -115,6 +115,8 @@ fun! s:open_qf(output_file, cmd, errorformat)
   exec "cgetfile " . a:output_file
   let &errorformat = save
 
+  call delete(a:output_file)
+
   cwindow
   let is_in_qf = &buftype ==# 'quickfix'
   if was_in_qf != is_in_qf
@@ -122,6 +124,7 @@ fun! s:open_qf(output_file, cmd, errorformat)
   endif
 
   call setqflist([], 'r', {'title': a:cmd})
+  echo "Done: " a:cmd
 endfun
 
 fun! s:check_status(timer_id) abort
