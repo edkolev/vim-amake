@@ -43,22 +43,22 @@ fun! s:error (msg)
     return ''
 endfun
 
-fun! amake#amake(args) abort
+fun! amake#amake(bang, args) abort
   if empty(&makeprg)
     echohl ErrorMsg | "amake: &makeprg is empty" | echohl None
     return
   endif
   cclose
-  call s:start(s:expand(&makeprg, a:args), &errorformat)
+  call s:start(a:bang, &makeprg, &errorformat, a:args)
 endfun
 
-fun! amake#agrep(args) abort
+fun! amake#agrep(bang, args) abort
   if empty(&grepprg)
     echohl ErrorMsg | "amake: &grepprg is empty" | echohl None
     return
   endif
   cclose
-  call s:start(s:expand(&grepprg, a:args), &grepformat)
+  call s:start(a:bang, &grepprg, &grepformat, a:args)
 endfun
 
 fun! s:expand(cmd, args) abort
@@ -69,7 +69,8 @@ fun! s:expand(cmd, args) abort
   return substitute(cmd, s:expandable, '\=expand(submatch(0))', 'g')
 endfun
 
-fun! s:start(cmd, errorformat) abort
+fun! s:start(bang, makeprg, errorformat, args) abort
+  let cmd = s:expand(a:makeprg, a:args)
   if &autowrite || &autowriteall
     silent! wall
   endif
@@ -84,22 +85,22 @@ fun! s:start(cmd, errorformat) abort
         \ 'in_io'   : 'null',
         \ 'out_mode': 'nl',
         \ 'err_mode': 'nl'}
-  let job = job_start(a:cmd, job_options)
+  let job = job_start(cmd, job_options)
 
   if job_status(job) ==# 'fail'
-    return s:error( "failed staring " . a:cmd )
+    return s:error( "failed staring " . cmd )
   endif
 
-  call s:l('job "' . a:cmd . '" started')
-  echo "Running: " . a:cmd
+  call s:l('job "' . cmd . '" started')
+  echo "Running: " . cmd
 
   let channel = job_getchannel(job)
   let chan_id = string(ch_info(channel).id)
   if empty(chan_id)
-    return s:error( "failed staring " . a:cmd )
+    return s:error( "failed staring " . cmd )
   endif
 
-  let s:jobs[chan_id] = { 'output_file': output_file, 'cmd': a:cmd, 'channel': channel, 'errorformat': a:errorformat }
+  let s:jobs[chan_id] = { 'output_file': output_file, 'cmd': cmd, 'channel': channel, 'errorformat': a:errorformat }
 
   let intervals = [25, 50, 100, 300, 600, 1000, 1500, 2000, 3000, 5000]
   if s:should_use_timers
