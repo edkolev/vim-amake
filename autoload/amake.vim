@@ -23,7 +23,16 @@
 let s:jobs = {}
 let s:timers = {}
 
+" withtout this patch vim check every 10 seconds for finished jobs so timer
+" are used to force vim (with job_status()) to check more frequently
+let s:should_use_timers = !has("patch-8.0.0055")
+
 " TODO try to remove s:close_callback -- chan_id should be replaced by some other id
+" TODO deny multiple running processes
+
+fun! AmakeCount()
+   return len(keys(s:jobs))
+endfun
 
 fun! s:l(msg)
   :call writefile([a:msg], "/tmp/event.log", "a")
@@ -61,6 +70,10 @@ fun! s:expand(cmd, args) abort
 endfun
 
 fun! s:start(cmd, errorformat) abort
+  if &autowrite || &autowriteall
+    silent! wall
+  endif
+
   let output_file = tempname()
   let job_options = {
         \ 'close_cb': function('s:close_callback'),
@@ -78,6 +91,7 @@ fun! s:start(cmd, errorformat) abort
   endif
 
   call s:l('job "' . a:cmd . '" started')
+  echo "Running: " . a:cmd
 
   let channel = job_getchannel(job)
   let chan_id = string(ch_info(channel).id)
@@ -88,44 +102,68 @@ fun! s:start(cmd, errorformat) abort
   let s:jobs[chan_id] = { 'output_file': output_file, 'cmd': a:cmd, 'channel': channel, 'errorformat': a:errorformat }
 
   let intervals = [25, 50, 100, 300, 600, 1000, 1500, 2000, 3000, 5000]
-  let timer_id = timer_start(remove(intervals, 0), function('s:check_status'))
-  let s:timers[timer_id] = { 'chan_id': chan_id, 'intervals': intervals }
+  if s:should_use_timers
+     let timer_id = timer_start(remove(intervals, 0), function('s:check_status'))
+     let s:timers[timer_id] = { 'chan_id': chan_id, 'intervals': intervals }
+  endif
 
   return chan_id
 endfun
 
-fun! s:exit_callback(job, status)
-  call s:l('exit callback')
+fun! s:exit_callback(job, exit_status)
+  call s:l('exit callback, status: ' . a:exit_status)
   let chan_id = s:channel_id(a:job)
-
   if empty(chan_id)
     return s:error("failed getting channel of job")
   endif
 
   let job = remove(s:jobs, chan_id)
-
-  call s:open_qf(job.output_file, job.cmd, job.errorformat)
+  call s:open_qf(a:exit_status, job.output_file, job.cmd, job.errorformat)
 endfun
 
-fun! s:open_qf(output_file, cmd, errorformat)
+fun! s:open_qf(exit_status, output_file, cmd, errorformat)
   let was_in_qf = &buftype ==# 'quickfix'
 
   let save = &errorformat
   let &errorformat = a:errorformat
+
   exec "cgetfile " . a:output_file
   let &errorformat = save
 
   call delete(a:output_file)
 
-  cwindow
   let is_in_qf = &buftype ==# 'quickfix'
   if was_in_qf != is_in_qf
     wincmd p
   endif
 
   call setqflist([], 'r', {'title': a:cmd})
-  echo "Done: " a:cmd
+  silent redraw!
+  echo (a:exit_status == 0 ? "Success: " : "Failure: ") . a:cmd
 endfun
+
+fun! s:close_callback(channel)
+  return ''
+endfun
+
+fun! s:channel_id(job)
+  if job_status(a:job) ==# 'fail'
+    return ''
+  endif
+
+  let channel = job_getchannel(a:job)
+  if string(channel) ==# 'channel fail'
+    return ''
+  endif
+
+  let channel_info = ch_info(channel)
+  return string(channel_info.id)
+endfun
+
+
+if !s:should_use_timers
+   finish
+endif
 
 fun! s:check_status(timer_id) abort
   let timer = remove(s:timers,a:timer_id)
@@ -155,23 +193,5 @@ fun! s:check_status(timer_id) abort
   let new_timer_id = timer_start(remove(timer.intervals, 0), function('s:check_status'))
   call s:l('timer: new timer started' . new_timer_id)
   let s:timers[new_timer_id] = timer
-endfun
-
-fun! s:close_callback(channel)
-  return ''
-endfun
-
-fun! s:channel_id(job)
-  if job_status(a:job) ==# 'fail'
-    return ''
-  endif
-
-  let channel = job_getchannel(a:job)
-  if string(channel) ==# 'channel fail'
-    return ''
-  endif
-
-  let channel_info = ch_info(channel)
-  return string(channel_info.id)
 endfun
 

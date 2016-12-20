@@ -20,5 +20,14 @@
 " OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 " SOFTWARE.
 
-command! -nargs=* M call amake#amake(<q-args>)
-command! -nargs=* G call amake#agrep(<q-args>)
+command! -complete=file -nargs=* M call amake#amake(<q-args>)
+command! -complete=file -nargs=* G call amake#agrep(<q-args>)
+
+" this function will be re-defined on first autoload
+fun! AmakeCount()
+   return 0
+endfun
+
+fun! AmakeStatusline()
+   return AmakeCount() > 0 ? '[running]' : ''
+endfun
