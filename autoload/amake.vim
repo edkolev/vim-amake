@@ -39,7 +39,7 @@ fun! s:l(msg)
 endfun
 
 fun! s:error (msg)
-    echohl ErrorMsg | "amake: " . a:msg| echohl None
+    echohl ErrorMsg | echo "amake: " . a:msg | echohl None
     return ''
 endfun
 
@@ -68,6 +68,9 @@ fun! s:expand(cmd, args) abort
 endfun
 
 fun! s:start(bang, makeprg, errorformat, autocmd, args) abort
+  if len(keys(s:jobs)) > 0
+    return s:error("previous job still running")
+  endif
   let cmd = s:expand(a:makeprg, a:args)
   if &autowrite || &autowriteall
     silent! wall
@@ -164,7 +167,6 @@ fun! s:channel_id(job)
   let channel_info = ch_info(channel)
   return string(channel_info.id)
 endfun
-
 
 if !s:should_use_timers
    finish
