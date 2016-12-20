@@ -45,20 +45,18 @@ endfun
 
 fun! amake#amake(bang, args) abort
   if empty(&makeprg)
-    echohl ErrorMsg | "amake: &makeprg is empty" | echohl None
-    return
+    return s:error("&makeprg is empty")
   endif
   cclose
-  call s:start(a:bang, &makeprg, &errorformat, a:args)
+  call s:start(a:bang, &makeprg, &errorformat, 'make', a:args)
 endfun
 
 fun! amake#agrep(bang, args) abort
   if empty(&grepprg)
-    echohl ErrorMsg | "amake: &grepprg is empty" | echohl None
-    return
+    return s:error("&grepprg is empty")
   endif
   cclose
-  call s:start(a:bang, &grepprg, &grepformat, a:args)
+  call s:start(a:bang, &grepprg, &grepformat, 'grep', a:args)
 endfun
 
 fun! s:expand(cmd, args) abort
@@ -69,7 +67,7 @@ fun! s:expand(cmd, args) abort
   return substitute(cmd, s:expandable, '\=expand(submatch(0))', 'g')
 endfun
 
-fun! s:start(bang, makeprg, errorformat, args) abort
+fun! s:start(bang, makeprg, errorformat, autocmd, args) abort
   let cmd = s:expand(a:makeprg, a:args)
   if &autowrite || &autowriteall
     silent! wall
@@ -100,7 +98,8 @@ fun! s:start(bang, makeprg, errorformat, args) abort
     return s:error( "failed staring " . cmd )
   endif
 
-  let s:jobs[chan_id] = { 'output_file': output_file, 'cmd': cmd, 'channel': channel, 'errorformat': a:errorformat }
+  let s:jobs[chan_id] = { 'output_file': output_file, 'cmd': cmd, 'channel': channel,
+                         \'errorformat': a:errorformat, 'bang': a:bang, 'autocmd': a:autocmd }
 
   let intervals = [25, 50, 100, 300, 600, 1000, 1500, 2000, 3000, 5000]
   if s:should_use_timers
@@ -119,28 +118,33 @@ fun! s:exit_callback(job, exit_status)
   endif
 
   let job = remove(s:jobs, chan_id)
-  call s:open_qf(a:exit_status, job.output_file, job.cmd, job.errorformat)
+  call s:open_qf(a:exit_status, job)
 endfun
 
-fun! s:open_qf(exit_status, output_file, cmd, errorformat)
+fun! s:open_qf(exit_status, job) abort
   let was_in_qf = &buftype ==# 'quickfix'
 
   let save = &errorformat
-  let &errorformat = a:errorformat
+  let &errorformat = a:job.errorformat
 
-  exec "cgetfile " . a:output_file
+  execute "silent doautocmd QuickFixCmdPre " . a:job.autocmd
+  let cfile = a:job.bang ? 'cgetfile' : 'cfile'
+  execute 'noautocmd ' . cfile . ' ' . fnameescape(a:job.output_file)
+  execute "silent doautocmd QuickFixCmdPost " . a:job.autocmd
+
+  exec "cgetfile " . a:job.output_file
   let &errorformat = save
 
-  call delete(a:output_file)
+  call delete(a:job.output_file)
 
   let is_in_qf = &buftype ==# 'quickfix'
   if was_in_qf != is_in_qf
     wincmd p
   endif
 
-  call setqflist([], 'r', {'title': a:cmd})
+  call setqflist([], 'r', {'title': a:job.cmd})
   silent redraw!
-  echo (a:exit_status == 0 ? "Success: " : "Failure: ") . a:cmd
+  echo (a:exit_status == 0 ? "Success: " : "Failure: ") . a:job.cmd
 endfun
 
 fun! s:close_callback(channel)
