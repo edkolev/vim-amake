@@ -145,6 +145,10 @@ fun! s:open_qf(exit_status, job) abort
 
   call delete(a:job.output_file)
 
+  if (a:exit_status)
+     botright copen
+  endif
+
   let is_in_qf = &buftype ==# 'quickfix'
   if was_in_qf != is_in_qf
     wincmd p
@@ -152,7 +156,7 @@ fun! s:open_qf(exit_status, job) abort
 
   call setqflist([], 'r', {'title': a:job.cmd})
   silent redraw!
-  echo (a:exit_status == 0 ? "Success: " : "Failure: ") . a:job.cmd
+  echo (a:exit_status ? "Failure: " : "Success: ") . a:job.cmd
 endfun
 
 fun! s:close_callback(channel)
