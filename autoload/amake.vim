@@ -28,10 +28,15 @@ let s:timers = {}
 let s:should_use_timers = !has("patch-8.0.0055")
 
 " TODO try to remove s:close_callback -- chan_id should be replaced by some other id
-" TODO deny multiple running processes
 
-fun! AmakeCount()
-   return len(keys(s:jobs))
+fun! AmakeRunning()
+   if len(keys(s:jobs)) == 0
+      return ''
+   elseif len(keys(s:jobs)) == 1
+      return ':' . s:jobs[keys(s:jobs)[0]].autocmd
+   else
+      return 'multiple'
+   endif
 endfun
 
 fun! s:l(msg)

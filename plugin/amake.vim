@@ -24,10 +24,9 @@ command! -bang -complete=file -nargs=* Amake call amake#amake(<bang>0, <q-args>)
 command! -bang -complete=file -nargs=* Agrep call amake#agrep(<bang>0, <q-args>)
 
 " this function will be re-defined on first autoload
-fun! AmakeCount()
-   return 0
+fun! AmakeRunning()
+   return ''
 endfun
-
 fun! AmakeStatusline()
-   return AmakeCount() > 0 ? '[running]' : ''
+   return empty(AmakeRunning()) ? '' : '[running ' . AmakeRunning() . ']'
 endfun
