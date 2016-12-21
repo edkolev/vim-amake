@@ -48,20 +48,14 @@ fun! s:error (msg)
     return ''
 endfun
 
-fun! amake#amake(bang, args) abort
-  if empty(&makeprg)
-    return s:error("&makeprg is empty")
-  endif
-  cclose
-  call s:start(a:bang, &makeprg, &errorformat, 'make', a:args)
-endfun
 
-fun! amake#agrep(bang, args) abort
-  if empty(&grepprg)
-    return s:error("&grepprg is empty")
+fun! amake#start(bang, makeprg_name, errorformat_name, autocmd, args) abort
+  let makeprg = eval("&" . a:makeprg_name)
+  let errorformat = eval("&" . a:errorformat_name)
+  if empty(makeprg)
+    return s:error("&" . a:makeprg_name . " is empty")
   endif
-  cclose
-  call s:start(a:bang, &grepprg, &grepformat, 'grep', a:args)
+  call s:start(a:bang, makeprg, errorformat, a:autocmd, a:args)
 endfun
 
 fun! s:expand(cmd, args) abort
@@ -81,6 +75,7 @@ fun! s:start(bang, makeprg, errorformat, autocmd, args) abort
     silent! wall
   endif
 
+  cclose
   let output_file = tempname()
   let job_options = {
         \ 'close_cb': function('s:close_callback'),

@@ -20,8 +20,8 @@
 " OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 " SOFTWARE.
 
-command! -bang -complete=file -nargs=* Amake call amake#amake(<bang>0, <q-args>)
-command! -bang -complete=file -nargs=* Agrep call amake#agrep(<bang>0, <q-args>)
+command! -bang -complete=file -nargs=* Amake call amake#start(<bang>0, 'makeprg', 'errorformat', 'make', <q-args>)
+command! -bang -complete=file -nargs=* Agrep call amake#start(<bang>0, 'grepprg', 'grepformat', 'grep', <q-args>)
 
 " this function will be re-defined on first autoload
 fun! AmakeRunning()
