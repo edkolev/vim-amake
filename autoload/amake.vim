@@ -59,11 +59,16 @@ fun! amake#start(bang, makeprg_name, errorformat_name, autocmd, args) abort
 endfun
 
 fun! s:expand(cmd, args) abort
+  " expand args
   let cmd = substitute(a:cmd, '\$\*', a:args, 'g')
+
   " from tpope's vim-dispatch https://github.com/tpope/vim-dispatch
   let s:flags = '<\=\%(:[p8~.htre]\|:g\=s\(.\).\{-\}\1.\{-\}\1\)*'
   let s:expandable = '\\*\%(<\w\+>\|%\|#\d*\)' . s:flags
-  return substitute(cmd, s:expandable, '\=expand(submatch(0))', 'g')
+  let cmd = substitute(cmd, s:expandable, '\=expand(submatch(0))', 'g')
+
+  " trim whitespace
+  return substitute(cmd, '^\s*\|\s*$', '', 'g')
 endfun
 
 fun! s:start(bang, makeprg, errorformat, autocmd, args) abort
